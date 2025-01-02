@@ -1,12 +1,21 @@
 # NuLibC
-## A custom minimal libc for the [neit programming language](https://oxumlabs.github.io/nsite)
+## A Custom Minimal C Library for the [Neit Programming Language](https://oxumlabs.github.io/nsite)
 
-this libc is built using musl for more static behaviour and currently implements the following functions:
+NuLibC is a custom minimal C standard library designed specifically for the [Neit programming language](https://oxumlabs.github.io/nsite). It is built using **musl** for more static behavior, ensuring that it is compact and efficient. Currently, NuLibC implements the following core functionalities:
 
-1.) ``strcmp`` :~ A function to compare 2 string-type values
-2.) ``nprintf`` :~ allows printing to standard out (stdout) , like the normal ``printf`` this supports formatters aswell
-3.) ``memory_pool`` :~ Allows creation of custom memory pool and allocating blocks from it , writting to them freeing them and more!
+### Features
 
-##### Check out the full source at [nulibc.h](nulibc.h) as well as [nulibc.c](nulibc.c) for in detailed explanations , especially the ``nulibc.h`` contains documentations you can read!
+1. **`strcmp`**:
+   - A function to compare two string-type values.
+   
+2. **`nprintf`**:
+   - Allows formatted output to standard output (`stdout`), similar to `printf`. It supports format specifiers such as `%d`, `%s`, `%x`, etc., for printing integers, strings, and hexadecimal values.
+   
+3. **`memory_pool`**:
+   - Provides functionality for creating custom memory pools, allocating and deallocating memory blocks from them, and managing the memory lifecycle.
+   - It includes features for managing free and allocated blocks, memory pooling, and basic error handling for memory operations.
+
+##### Check out the full source at [nulibc.h](nulibc.h) as well as [nulibc.c](nulibc.c) for detailed explanations, especially the `nulibc.h` which contains documentation you can read! Also you shall use the ``nulibc.zip`` file to get the latest package of NuLibC , it contains ``nulibc.a`` for static linking and ``nulibc.c`` and ``nulibc.h`` for actually using the library
+
 ---
-This project is under the [MIT License](LICENSE)
+This project is under the [MIT License](LICENSE).

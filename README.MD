@@ -17,5 +17,7 @@ NuLibC is a custom minimal C standard library designed specifically for the [Nei
 
 ##### Check out the full source at [nulibc.h](nulibc.h) as well as [nulibc.c](nulibc.c) for detailed explanations, especially the `nulibc.h` which contains documentation you can read! Also you shall use the ``nulibc.zip`` file to get the latest package of NuLibC , it contains ``nulibc.a`` for static linking and ``nulibc.c`` and ``nulibc.h`` for actually using the library
 
+##### We are aiming to add more features as this is a support library for the Neit programming language, so stay tuned for more updates! also feel free to contribute to this project by submitting pull requests or issues
+
 ---
 This project is under the [MIT License](LICENSE).

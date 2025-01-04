@@ -1,94 +1,175 @@
     #include <stdarg.h>
     #include <unistd.h>
-    void write_num(int num) {
-        char buffer[20];
-        int i = 0;
-
-        if (num < 0) {
-            write(STDOUT_FILENO, "-", 1);
-            num = -num;
-        }
-
-        if (num == 0) {
-            write(STDOUT_FILENO, "0", 1);
-            return;
-        }
-
-        while (num > 0) {
-            buffer[i++] = (num % 10) + '0';
-            num /= 10;
-        }
-
-        for (int j = i - 1; j >= 0; j--) {
-            write(STDOUT_FILENO, &buffer[j], 1);
-        }
+    #if UNIX
+    typedef unsigned long size_t;
+    #endif
+    size_t nstrlen(const char *str);
+    typedef struct{
+        char *str;
+        size_t len;
+    }nstring;
+    nstring strnew(const char *str){
+        nstring s;
     }
+nstring nstrncpy(const nstring *s, size_t start, size_t length);
+#include <unistd.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
 
-    void write_str(const char *str) {
+#define STDOUT 1
+#define STDERR 2
+#define STDIN 0
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+void write_char(int fd, char c) {
+    write(fd, &c, 1);
+}
+
+void write_str(int fd, const char *str) {
+    if (str) {
         while (*str) {
-            write(STDOUT_FILENO, str, 1);
-            str++;
+            write(fd, str++, 1);
+        }
+    }
+}
+
+void write_num(int fd, int num) {
+    char buffer[20];
+    int i = 0;
+
+    if (num == 0) {
+        write(fd, "0", 1);
+        return;
+    }
+
+    if (num < 0) {
+        write(fd, "-", 1);
+        num = -num;
+    }
+
+    while (num > 0) {
+        buffer[i++] = (num % 10) + '0';
+        num /= 10;
+    }
+
+    for (int j = i - 1; j >= 0; j--) {
+        write(fd, &buffer[j], 1);
+    }
+}
+
+void write_unsigned(int fd, unsigned int num) {
+    char buffer[20];
+    int i = 0;
+
+    if (num == 0) {
+        write(fd, "0", 1);
+        return;
+    }
+
+    while (num > 0) {
+        buffer[i++] = (num % 10) + '0';
+        num /= 10;
+    }
+
+    for (int j = i - 1; j >= 0; j--) {
+        write(fd, &buffer[j], 1);
+    }
+}
+
+void write_hex(int fd, unsigned int num) {
+    const char hex_chars[] = "0123456789abcdef";
+    char buffer[10];
+    int i = 0;
+
+    if (num == 0) {
+        write(fd, "0", 1);
+        return;
+    }
+
+    while (num > 0) {
+        buffer[i++] = hex_chars[num % 16];
+        num /= 16;
+    }
+
+    for (int j = i - 1; j >= 0; j--) {
+        write(fd, &buffer[j], 1);
+    }
+}
+
+void write_ptr(int fd, void *ptr) {
+    write(fd, "0x", 2);
+    write_hex(fd, (unsigned long)ptr);
+}
+
+void write_float(int fd, double num) {
+    char buffer[50];
+    int int_part = (int)num;
+    double frac_part = num - int_part;
+    
+    write_num(fd, int_part);
+    write(fd, ".", 1);
+
+    frac_part *= 1000000;
+    int frac_int = (int)frac_part;
+    write_num(fd, frac_int);
+}
+
+void nprintf(int fd, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    const char *ptr = format;
+
+    while (*ptr) {
+        if (*ptr == '%' && *(ptr + 1) == 'd') {
+            int num = va_arg(args, int);
+            write_num(fd, num);
+            ptr += 2;
+        } else if (*ptr == '%' && *(ptr + 1) == 'u') {
+            unsigned int num = va_arg(args, unsigned int);
+            write_unsigned(fd, num);
+            ptr += 2;
+        }
+        else if (*ptr == '%' && *(ptr +1) == 'z' && *(ptr + 2) == 'u') {
+            unsigned int num = va_arg(args, unsigned int);
+            write_unsigned(fd, num);
+            ptr += 3;
+        }
+        else if (*ptr == '%' && *(ptr + 1) == 's') {
+            char *str = va_arg(args, char*);
+            write_str(fd, str);
+            ptr += 2;
+        } else if (*ptr == '%' && *(ptr + 1) == 'c') {
+            char c = (char)va_arg(args, int);
+            write_char(fd, c);
+            ptr += 2;
+        } else if (*ptr == '%' && *(ptr + 1) == 'x') {
+            unsigned int hex = va_arg(args, unsigned int);
+            write_hex(fd, hex);
+            ptr += 2;
+        } else if (*ptr == '%' && *(ptr + 1) == 'p') {
+            void *ptr_value = va_arg(args, void*);
+            write_ptr(fd, ptr_value);
+            ptr += 2;
+        } else if (*ptr == '%' && *(ptr + 1) == 'f') {
+            double num = va_arg(args, double);
+            write_float(fd, num);
+            ptr += 2;
+        } else if (*ptr == '%' && *(ptr + 1) == '%') {
+            write_char(fd, '%');
+            ptr += 2;
+        } else {
+            write_char(fd, *ptr);
+            ptr++;
         }
     }
 
-    void write_hex(unsigned int num) {
-        const char hex_chars[] = "0123456789abcdef";
-        char buffer[10];
-        int i = 0;
+    va_end(args);
+}
 
-        if (num == 0) {
-            write(STDOUT_FILENO, "0", 1);
-            return;
-        }
-
-        while (num > 0) {
-            buffer[i++] = hex_chars[num % 16];
-            num /= 16;
-        }
-
-        for (int j = i - 1; j >= 0; j--) {
-            write(STDOUT_FILENO, &buffer[j], 1);
-        }
-    }
-
-    void write_char(char c) {
-        write(STDOUT_FILENO, &c, 1);
-    }
-
-    void nprintf(const char *s, ...) {
-        va_list args;
-        va_start(args, s);
-
-        const char *ptr = s;
-        while (*ptr != '\0') {
-            if (*ptr == '%' && *(ptr + 1) == 'd') {
-                int num = va_arg(args, int);
-                write_num(num);
-                ptr += 2;
-            } else if (*ptr == '%' && *(ptr + 1) == 's') {
-                char *str = va_arg(args, char*);
-                write_str(str);
-                ptr += 2;
-            } else if (*ptr == '%' && *(ptr + 1) == 'c') {
-                char c = (char) va_arg(args, int);
-                write_char(c);
-                ptr += 2;
-            } else if (*ptr == '%' && *(ptr + 1) == 'x') {
-                unsigned int hex = va_arg(args, unsigned int);
-                write_hex(hex);
-                ptr += 2;
-            } else if (*ptr == '%' && *(ptr + 1) == 'p') {
-                void *ptr_value = va_arg(args, void*);
-                write_hex((unsigned long)ptr_value);
-                ptr += 2;
-            } else {
-                write_char(*ptr);
-                ptr++;
-            }
-        }
-
-        va_end(args);
-    }
     int strcmp(const char *str1, const char *str2) {
         while (*str1 != '\0' && *str2 != '\0') {
             if (*str1 != *str2) {
@@ -101,216 +182,275 @@
     }
 
 
-
-
-
-
-    /*
-    =============================Memory Manager====================================
-    */
-   #include <stdio.h>
+/*
+=============================Memory Manager====================================
+*/
 #include <stdlib.h>
 #include <string.h>
 
-int DEBUG = 1;
-
-typedef struct Block {
+typedef struct MemBlock {
+    char* data;
     size_t size;
-    int is_free;
-    struct Block* next;
-    char name[32];
-} Block;
+    int free;
+    struct MemBlock* next;
+    char name[64];
+} MemBlock;
 
-typedef struct MemoryPool {
-    size_t total_size;
-    size_t used_size;
-    size_t free_size;
-    Block* free_list;
-    struct MemoryPool* next;
-} MemoryPool;
+typedef struct MemManager {
+    size_t total;
+    size_t used;
+    MemBlock* blocks;
+} MemManager;
 
-MemoryPool* global_pool_list = NULL;
-void memory_pool_add(MemoryPool* pool) {
-    if (!pool) return;
-
-    pool->next = global_pool_list;
-    global_pool_list = pool;
+MemManager* mem_init(size_t total) {
+    MemManager* mgr = (MemManager*)malloc(sizeof(MemManager));
+    if (!mgr) return NULL;
+    mgr->total = total;
+    mgr->used = 0;
+    mgr->blocks = NULL;
+    return mgr;
 }
 
-MemoryPool* memory_pool_create(size_t total_size) {
-    if (total_size == 0) {
-        if (DEBUG) printf("Error: Cannot create a memory pool with size 0.\n");
+MemBlock* mem_alloc(MemManager* mgr, size_t size, const char* name) {
+    if (!mgr || size == 0 || mgr->used + size > mgr->total || !name) return NULL;
+
+    MemBlock* blk = (MemBlock*)malloc(sizeof(MemBlock));
+    if (!blk) return NULL;
+
+    blk->data = (char*)malloc(size);
+    if (!blk->data) {
+        free(blk);
         return NULL;
     }
 
-    MemoryPool* new_pool = (MemoryPool*)malloc(sizeof(MemoryPool));
-    if (!new_pool) {
-        if (DEBUG) printf("Error: Failed to allocate memory for new memory pool.\n");
-        return NULL;
-    }
+    blk->size = size;
+    blk->free = 0;
+    blk->next = mgr->blocks;
+    mgr->blocks = blk;
+    mgr->used += size;
 
-    new_pool->total_size = total_size;
-    new_pool->used_size = 0;
-    new_pool->free_size = total_size;
-    new_pool->free_list = (Block*)malloc(total_size);
-    if (!new_pool->free_list) {
-        free(new_pool);
-        if (DEBUG) printf("Error: Failed to allocate memory for memory pool's block list.\n");
-        return NULL;
-    }
+    strncpy(blk->name, name, sizeof(blk->name) - 1);
+    blk->name[sizeof(blk->name) - 1] = '\0';
 
-    new_pool->free_list->size = total_size;
-    new_pool->free_list->is_free = 1;
-    new_pool->free_list->next = NULL;
-    new_pool->next = NULL;
-
-    if (DEBUG) {
-        printf("Memory pool created with size %zu\n", total_size);
-    }
-    memory_pool_add(new_pool);
-    return new_pool;
+    return blk;
 }
 
-void* memory_pool_alloc(MemoryPool* pool, size_t size, const char* block_name) {
-    if (!pool || size == 0 || size > pool->free_size) {
-        if (DEBUG) printf("Error: Invalid allocation request.\n");
-        return NULL;
-    }
+void mem_free(MemManager* mgr, MemBlock* blk) {
+    if (!mgr || !blk || blk->free) return;
 
-    Block* best_fit = NULL;
-    Block* current = pool->free_list;
-
-    while (current) {
-        if (current->is_free && current->size >= size) {
-            if (!best_fit || current->size < best_fit->size) {
-                best_fit = current;
-            }
-        }
-        current = current->next;
-    }
-
-    if (!best_fit) {
-        if (DEBUG) printf("Error: No suitable block found for allocation.\n");
-        return NULL;
-    }
-
-    if (best_fit->size > size + sizeof(Block)) {
-        Block* new_block = (Block*)((char*)best_fit + sizeof(Block) + size);
-        new_block->size = best_fit->size - size - sizeof(Block);
-        new_block->is_free = 1;
-        new_block->next = best_fit->next;
-        best_fit->size = size;
-        best_fit->next = new_block;
-    }
-
-    best_fit->is_free = 0;
-    strncpy(best_fit->name, block_name, 32);
-
-    pool->used_size += size;
-    pool->free_size -= size;
-
-    if (DEBUG) {
-        printf("Allocated block '%s' of size %zu\n", best_fit->name, size);
-    }
-
-    return (void*)((char*)best_fit + sizeof(Block));
+    blk->free = 1;
+    mgr->used -= blk->size;
+    free(blk->data);
+    blk->data = NULL;
 }
 
-void memory_pool_free(MemoryPool* pool, void* ptr) {
-    if (!pool || !ptr) {
-        if (DEBUG) printf("Error: Invalid free request.\n");
-        return;
-    }
+void mem_cleanup(MemManager* mgr) {
+    if (!mgr) return;
 
-    Block* current = pool->free_list;
+    MemBlock* current = mgr->blocks;
     while (current) {
-        if ((void*)((char*)current + sizeof(Block)) == ptr && !current->is_free) {
-            current->is_free = 1;
-            pool->used_size -= current->size;
-            pool->free_size += current->size;
-            break;
-        }
-        current = current->next;
-    }
-
-    if (DEBUG) {
-        printf("Freed memory at address %p\n", ptr);
-    }
-
-    current = pool->free_list;
-    while (current) {
-        if (current->is_free && current->next && current->next->is_free) {
-            current->size += sizeof(Block) + current->next->size;
-            current->next = current->next->next;
-        }
-        current = current->next;
-    }
-}
-
-void memory_pool_destroy(MemoryPool* pool) {
-    if (!pool) {
-        fprintf(stderr, "Error: Attempted to destroy a null memory pool.\n");
-        return;
-    }
-
-    if (!pool->free_list) {
-        fprintf(stderr, "Warning: Memory pool free list is already null.\n");
-    }
-
-    Block* current = pool->free_list;
-    while (current) {
-        Block* next = current->next;
-        if (current == next) {
-            fprintf(stderr, "Error: Detected a cyclic block structure in memory pool.\n");
-            break;
-        }
+        MemBlock* next = current->next;
+        free(current->data);
         free(current);
         current = next;
     }
 
-    pool->free_list = NULL;
-
-    if (DEBUG) {
-        printf("Memory pool destroyed successfully.\n");
-    }
+    free(mgr);
 }
 
-void memory_pool_debug(MemoryPool* pool) {
-    if (!pool) {
-        if (DEBUG) printf("Error: Null pool passed to debug function.\n");
-        return;
-    }
+int mem_wrtstr(MemBlock* blk, const char* str) {
+    if (!blk || blk->free || !str) return -1;
 
-    printf("Memory Pool Debug Info:\n");
-    printf("Total Size: %zu, Used Size: %zu, Free Size: %zu\n", pool->total_size, pool->used_size, pool->free_size);
+    size_t str_len = strlen(str);
+    if (str_len + 1 > blk->size) return -2;
 
-    Block* current = pool->free_list;
-    while (current) {
-        printf("  Block: %s, Size: %zu, Free: %d\n", current->name, current->size, current->is_free);
-        current = current->next;
-    }
+    strcpy(blk->data, str);
+    return 0;
 }
 
-void memory_pool_clear() {
-    MemoryPool* current_pool = global_pool_list;
+int mem_write_str_by_name(MemManager* mgr, const char* name, const char* str) {
+    if (!mgr || !name || !str) return -1;
 
-    while (current_pool) {
-        Block* current_block = current_pool->free_list;
-        while (current_block) {
-            Block* next_block = current_block->next;
-            free(current_block);
-            current_block = next_block;
+    MemBlock* blk = mgr->blocks;
+    while (blk) {
+        if (blk->free == 0 && strcmp(name, blk->name) == 0) {
+            return mem_wrtstr(blk, str);
         }
-
-        MemoryPool* next_pool = current_pool->next;
-        free(current_pool);
-        current_pool = next_pool;
+        blk = blk->next;
     }
 
-    global_pool_list = NULL;
+    size_t str_len = strlen(str) + 1;
+    blk = mem_alloc(mgr, str_len, name);
+    if (!blk) return -3;
 
-    if (DEBUG) {
-        printf("All memory pools cleared.\n");
+    return mem_wrtstr(blk, str);
+}
+
+char* mem_rdstr(MemManager* mgr, const char* name) {
+    if (!mgr || !name) return NULL;
+
+    MemBlock* blk = mgr->blocks;
+    while (blk) {
+        if (blk->free == 0 && strcmp(name, blk->name) == 0) {
+            return blk->data;
+        }
+        blk = blk->next;
+    }
+    return NULL;
+}
+
+int mem_wrtint(MemBlock* blk, int value) {
+    if (!blk || blk->free) return -1;
+
+    if (blk->size < sizeof(int)) return -2;
+
+    memcpy(blk->data, &value, sizeof(int));
+    return 0;
+}
+
+int mem_write_int_by_name(MemManager* mgr, const char* name, int value) {
+    if (!mgr || !name) return -1;
+
+    MemBlock* blk = mgr->blocks;
+    while (blk) {
+        if (blk->free == 0 && strcmp(name, blk->name) == 0) {
+            return mem_wrtint(blk, value);
+        }
+        blk = blk->next;
+    }
+
+    blk = mem_alloc(mgr, sizeof(int), name);
+    if (!blk) return -3;
+
+    return mem_wrtint(blk, value);
+}
+
+int mem_rdint(MemManager* mgr, const char* name) {
+    if (!mgr || !name) return -1;
+
+    MemBlock* blk = mgr->blocks;
+    while (blk) {
+        if (blk->free == 0 && strcmp(name, blk->name) == 0) {
+            int value;
+            memcpy(&value, blk->data, sizeof(int));
+            return value;
+        }
+        blk = blk->next;
+    }
+    return -1;
+}
+int mem_wrnstring(MemBlock* blk, nstring str) {
+    if (!blk || blk->free || !str.str) return -1;
+    size_t str_len = str.len + 1;
+    if (str_len + 1 > blk->size) return -2;
+    memcpy(blk->data, str.str, str_len);
+    return 0;
+}
+nstring mem_rdnstring(MemManager* mgr, const char* name) {
+    if (!mgr || !name) return (nstring){.str = NULL, .len = 0};
+    MemBlock* blk = mgr->blocks;
+    while (blk) {
+        if (blk->free == 0 && strcmp(name, blk->name) == 0) {
+            nstring str;
+            memcpy(&str, blk->data, sizeof(nstring));
+            return str;
+        }
+        blk = blk->next;
+    }
+    return (nstring){.str = NULL, .len = 0};
+}
+
+
+/*
+=============================String Functions====================================
+*/
+size_t nstrlen(const char *str) {
+    size_t len = 0;
+    while (*str != '\0') {
+        len++;
+        str++;
+    }
+    return len;
+}
+
+nstring nstrcpy(const nstring *src) {
+    if (!src || !src->str) return (nstring){.str = NULL, .len = 0};
+    char *new_str = (char *)malloc(src->len + 1);
+    for (size_t i = 0; i < src->len; i++) {
+        new_str[i] = src->str[i];
+    }
+    new_str[src->len] = '\0';
+    return (nstring){.str = new_str, .len = src->len};
+}
+
+int nstring_cmp(const nstring *s1, const nstring *s2) {
+    if (!s1 || !s2 || !s1->str || !s2->str) return 0;
+    size_t min_len = s1->len < s2->len ? s1->len : s2->len;
+    for (size_t i = 0; i < min_len; i++) {
+        if (s1->str[i] != s2->str[i]) return s1->str[i] - s2->str[i];
+    }
+    return s1->len - s2->len;
+}
+
+nstring nstrcat(const nstring *s1, const nstring *s2) {
+    if (!s1 || !s2 || !s1->str || !s2->str) return (nstring){.str = NULL, .len = 0};
+    size_t new_len = s1->len + s2->len;
+    char *new_str = (char *)malloc(new_len + 1);
+    for (size_t i = 0; i < s1->len; i++) {
+        new_str[i] = s1->str[i];
+    }
+    for (size_t i = 0; i < s2->len; i++) {
+        new_str[s1->len + i] = s2->str[i];
+    }
+    new_str[new_len] = '\0';
+    return (nstring){.str = new_str, .len = new_len};
+}
+
+size_t nstrchr(const nstring *s, char c) {
+    if (!s || !s->str) return (size_t)-1;
+    for (size_t i = 0; i < s->len; i++) {
+        if (s->str[i] == c) return i;
+    }
+    return (size_t)-1;
+}
+
+nstring nstrncpy(const nstring *s, size_t start, size_t length) {
+    if (!s || !s->str || start >= s->len) return (nstring){.str = NULL, .len = 0};
+    size_t max_len = (start + length) > s->len ? (s->len - start) : length;
+    char *new_str = (char *)malloc(max_len + 1);
+    for (size_t i = 0; i < max_len; i++) {
+        new_str[i] = s->str[start + i];
+    }
+    new_str[max_len] = '\0';
+    return (nstring){.str = new_str, .len = max_len};
+}
+
+void stringfree(nstring *s) {
+    if (s && s->str) {
+        free(s->str);
+        s->str = NULL;
+        s->len = 0;
     }
 }
 
+nstring nstrdup(const char *cstr) {
+    if (!cstr) return (nstring){.str = NULL, .len = 0};
+    size_t len = 0;
+    while (cstr[len]) len++;
+    char *new_str = (char *)malloc(len + 1);
+    for (size_t i = 0; i < len; i++) {
+        new_str[i] = cstr[i];
+    }
+    new_str[len] = '\0';
+    return (nstring){.str = new_str, .len = len};
+}
+
+char nstr_at_s(const nstring *s, size_t index) {
+    if (!s || !s->str || index >= s->len) return '\0';
+    return s->str[index];
+}
+
+void str_set_s(nstring *s, size_t index, char c) {
+    if (!s || !s->str || index >= s->len) return;
+    s->str[index] = c;
+}

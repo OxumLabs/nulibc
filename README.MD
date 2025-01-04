@@ -19,5 +19,10 @@ NuLibC is a custom minimal C standard library designed specifically for the [Nei
 
 ##### We are aiming to add more features as this is a support library for the Neit programming language, so stay tuned for more updates! also feel free to contribute to this project by submitting pull requests or issues
 
+
+---
+
+# Read the full documentation at [DOCS.md](DOCS.md)
+
 ---
 This project is under the [MIT License](LICENSE).

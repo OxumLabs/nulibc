@@ -1,7 +1,7 @@
-#include "nulibc.h"
-#include <string.h>
-int main() {
-    DEBUG = 1;
-    MemoryPool* j1 = memory_pool_create(2048);
+#include <nulibc.h>
+
+int main(int argc, char const *argv[])
+{
+    nprintf(STDOUT,"Hello World!\n");
     return 0;
 }

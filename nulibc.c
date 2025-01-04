@@ -3,7 +3,7 @@
     #if UNIX
     typedef unsigned long size_t;
     #endif
-    size_t nstrlen(const char *str);
+    size_t nstrlen(nstring *str);
     typedef struct{
         char *str;
         size_t len;
@@ -364,13 +364,8 @@ nstring mem_rdnstring(MemManager* mgr, const char* name) {
 /*
 =============================String Functions====================================
 */
-size_t nstrlen(const char *str) {
-    size_t len = 0;
-    while (*str != '\0') {
-        len++;
-        str++;
-    }
-    return len;
+size_t nstrlen(nstring *str) {
+    return str->len;
 }
 
 nstring nstrcpy(const nstring *src) {

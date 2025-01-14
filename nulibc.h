@@ -118,7 +118,14 @@ typedef struct {
  * @param str: The C string to be converted into `nstring`.
  * @return: A new `nstring` structure containing the given string and its length.
  */
-nstring strnew(const char *str);
+nstring nstr_new(const char *str);
+
+/**
+ * Frees an array of `nstring`s
+ * @param array: The array of `nstring`s to free
+ * @param count: The number of elements in the array
+ */
+void free_nstr_array(nstring *array, size_t count);
 
 /**
  * Returns the length of an `nstring`.
@@ -141,7 +148,7 @@ nstring nstrcpy(const nstring *src);
  * @return: 0 if the `nstring` objects are equal, a negative value if `s1` is less than `s2`,
  *         or a positive value if `s1` is greater than `s2`.
  */
-int nstring_cmp(const nstring *s1, const nstring *s2);
+int nstr_cmp(const nstring *s1, const nstring *s2);
 
 /**
  * Concatenates two `nstring` objects into a new `nstring`.
@@ -180,6 +187,14 @@ nstring nstrdup(const char *cstr);
  */
 char nstr_at_s(const nstring *s, size_t index);
 
+/**
+ * Splits a string at every instance of a specified character
+ * @param input: The string to split
+ * @param delimiter: The character to split at
+ * @return: An array of `nstring`s, each containing a substring of the input string
+ */
+nstring* nstr_split_at_every(nstring input, char delimiter);
+
 /* ============================================================
  * UTILITY FUNCTIONS
  * ============================================================ */
@@ -199,5 +214,73 @@ void nprintf(int fd, const char *format, ...);
  *         or a positive value if `str1` is greater than `str2`.
  */
 int strcmp(const char *str1, const char *str2);
+
+/**
+ * Exits the program with the specified status code
+ * @param status: The status code to exit with
+ */
+void nexit(int status);
+
+/**
+ * @struct ExitCode
+ * @brief Defines a set of common exit statuses for programs.
+ *
+ * This struct contains exit codes that can be used for signaling different types of termination reasons
+ * for processes. The exit codes are organized as named constants to allow descriptive access to common
+ * exit statuses.
+ */
+typedef struct {
+    /** Exit status indicating success */
+    int SUCCESS;
+    
+    /** Exit status indicating a general failure */
+    int FAILURE;
+    
+    /** Exit status indicating invalid arguments were passed to the program */
+    int INVALID_ARGUMENT;
+    
+    /** Exit status indicating the command was not found */
+    int COMMAND_NOT_FOUND;
+    
+    /** Exit status indicating permission was denied */
+    int PERMISSION_DENIED;
+    
+    /** Exit status indicating the process was terminated by a signal */
+    int SIGNAL_TERMINATED;
+    
+    /** Exit status indicating the process was terminated by signal interrupt (SIGINT) */
+    int SIGNAL_INT;
+    
+    /** Exit status indicating the process crashed due to a segmentation fault (SIGSEGV) */
+    int SEGFAULT;
+    
+    /** Exit status indicating the program went out of range or encountered an invalid range */
+    int OUT_OF_RANGE;
+} ExitCode;
+/** 
+ * @var ExitStatus
+ * @brief A static instance of ExitCode struct initialized with common exit status values.
+ *
+ * This constant is a pre-initialized instance of the ExitCode struct that contains common exit status
+ * values that can be used across the program.
+ */
+static const ExitCode ExitStatus = {
+    .SUCCESS = 0,
+    .FAILURE = 1,
+    .INVALID_ARGUMENT = 128,
+    .COMMAND_NOT_FOUND = 127,
+    .PERMISSION_DENIED = 126,
+    .SIGNAL_TERMINATED = 137,
+    .SIGNAL_INT = 130,
+    .SEGFAULT = 11,
+    .OUT_OF_RANGE = 255
+};
+
+/**
+ * Clears the screen
+ */
+void __NCLRSCRN__();
+
+int nsys(const char *command);
 
 #endif

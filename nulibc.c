@@ -1,14 +1,16 @@
     #include <stdarg.h>
     #include <unistd.h>
+    
     #if UNIX
     typedef unsigned long size_t;
     #endif
-    size_t nstrlen(nstring *str);
+    typedef int pid_t;
     typedef struct{
         char *str;
         size_t len;
     }nstring;
-    nstring strnew(const char *str){
+    size_t nstrlen(nstring *str);
+    nstring nstr_new(const char *str){
         nstring s;
     }
 nstring nstrncpy(const nstring *s, size_t start, size_t length);
@@ -38,7 +40,7 @@ void write_str(int fd, const char *str) {
 }
 
 void write_num(int fd, int num) {
-    char buffer[20];
+    char buffer[num];
     int i = 0;
 
     if (num == 0) {
@@ -180,7 +182,58 @@ void nprintf(int fd, const char *format, ...) {
         }
         return (unsigned char)(*str1) - (unsigned char)(*str2);
     }
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <stdlib.h>
 
+typedef struct {
+    int SUCCESS;
+    int FAILURE;
+    int INVALID_ARGUMENT;
+    int COMMAND_NOT_FOUND;
+    int PERMISSION_DENIED;
+    int SIGNAL_TERMINATED;
+    int SIGNAL_INT;
+    int SEGFAULT;
+    int OUT_OF_RANGE;
+} ExitCode;
+
+static const ExitCode ExitStatus = {
+    .SUCCESS = 0,
+    .FAILURE = 1,
+    .INVALID_ARGUMENT = 128,
+    .COMMAND_NOT_FOUND = 127,
+    .PERMISSION_DENIED = 126,
+    .SIGNAL_TERMINATED = 137,
+    .SIGNAL_INT = 130,
+    .SEGFAULT = 11,
+    .OUT_OF_RANGE = 255
+};
+
+/**
+ * Exit status built-ins
+ */
+void nexit(int status) {
+    exit(status);
+}
+
+int nsys(const char *command) {
+   system(command);
+}
+
+void __NCLRSCRN__() {
+    #if defined(_WIN32) || defined(_WIN64)
+        if (nsys("cls") == -1) {
+            return;
+        }
+    #elif defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
+        if (system("clear") == -1) {
+            return;
+        }
+    #else
+        return;
+    #endif
+}
 
 /*
 =============================Memory Manager====================================
@@ -378,7 +431,7 @@ nstring nstrcpy(const nstring *src) {
     return (nstring){.str = new_str, .len = src->len};
 }
 
-int nstring_cmp(const nstring *s1, const nstring *s2) {
+int nstr_cmp(const nstring *s1, const nstring *s2) {
     if (!s1 || !s2 || !s1->str || !s2->str) return 0;
     size_t min_len = s1->len < s2->len ? s1->len : s2->len;
     for (size_t i = 0; i < min_len; i++) {
@@ -445,7 +498,39 @@ char nstr_at_s(const nstring *s, size_t index) {
     return s->str[index];
 }
 
-void str_set_s(nstring *s, size_t index, char c) {
+void nstr_set_s(nstring *s, size_t index, char c) {
     if (!s || !s->str || index >= s->len) return;
     s->str[index] = c;
+}
+void free_nstr_array(nstring *array, size_t count) {
+    for (size_t i = 0; i <= count; i++) {
+        free(array[i].str);
+    }
+    free(array);
+}
+nstring* nstr_split_at_every(nstring input, char delimiter) {
+    const char *start = input.str;
+    const char *delim_pos;
+    size_t count = 0;
+
+    while ((delim_pos = strchr(start, delimiter)) != NULL) {
+        count++;
+        start = delim_pos + 1;
+    }
+
+    nstring *result = (nstring *)malloc((count + 1) * sizeof(nstring));
+
+    start = input.str;
+    size_t index = 0;
+    while ((delim_pos = strchr(start, delimiter)) != NULL) {
+        result[index].str = (char *)malloc(delim_pos - start + 1);
+        strncpy(result[index].str, start, delim_pos - start);
+        result[index].str[delim_pos - start] = '\0';
+        index++;
+        start = delim_pos + 1;
+    }
+
+    result[index].str = strdup(start);
+
+    return result;
 }

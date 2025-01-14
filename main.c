@@ -1,7 +1,10 @@
 #include <nulibc.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-int main(int argc, char const *argv[])
-{
-    nprintf(STDOUT,"Hello World!\n");
-    return 0;
+
+int main() {
+    nsys("ls");
+    __NCLRSCRN__();
+    nexit(ExitStatus.SEGFAULT);
 }

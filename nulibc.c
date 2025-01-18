@@ -335,3 +335,37 @@ nstring nstrcat(const nstring *s1, const nstring *s2) {
     new_str[new_len] = '\0';
     return (nstring){.str = new_str, .len = new_len};
 }
+void ninput(nstring *ns) {
+    size_t buffer_size = 64;  // Start with an initial buffer size
+    size_t len = 0;          // Length of the string input
+    char *buffer = (char *)malloc(buffer_size);
+    int ch;
+
+    if (!buffer) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        return;
+    }
+
+    // Read input character by character
+    while ((ch = getchar()) != '\n' && ch != EOF) {
+        // Check if we need to expand the buffer
+        if (len + 1 >= buffer_size) {
+            buffer_size *= 2;
+            char *new_buffer = (char *)realloc(buffer, buffer_size);
+            if (!new_buffer) {
+                free(buffer);
+                fprintf(stderr, "Memory reallocation failed.\n");
+                return;
+            }
+            buffer = new_buffer;
+        }
+
+        buffer[len++] = (char)ch;  // Store the character in the buffer
+    }
+
+    buffer[len] = '\0';  // Null-terminate the string
+
+    // Assign the string to nstring
+    ns->len = len;
+    ns->str = buffer;
+}

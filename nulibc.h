@@ -63,5 +63,6 @@ void mem_cleanup(MemManager* mgr);
 nstring nstrcpy(const nstring *src);
 int nstr_cmp(const nstring *s1, const nstring *s2);
 nstring nstrcat(const nstring *s1, const nstring *s2);
+void ninput(nstring *nstring);
 
 #endif // NULIBC_H

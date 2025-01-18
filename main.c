@@ -4,7 +4,5 @@
 
 
 int main() {
-    nsys("ls");
-    __NCLRSCRN__();
-    nexit(ExitStatus.SEGFAULT);
+nprintf(STDOUT, "Hello, World!\n"); 
 }

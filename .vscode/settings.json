@@ -3,6 +3,7 @@
         "stdio.h": "c",
         "stdarg.h": "c",
         "nulibc.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "windows.h": "c"
     }
 }

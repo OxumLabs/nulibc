@@ -1,63 +1,94 @@
-    #include <stdarg.h>
-    #include <unistd.h>
-    
-    #if UNIX
-    typedef unsigned long size_t;
-    #endif
-    typedef int pid_t;
-    typedef struct{
-        char *str;
-        size_t len;
-    }nstring;
-    size_t nstrlen(nstring *str);
-    nstring nstr_new(const char *str){
-        nstring s;
-    }
-nstring nstrncpy(const nstring *s, size_t start, size_t length);
-#include <unistd.h>
 #include <stdarg.h>
-#include <stdint.h>
+#if defined(UNIX)
+#include <unistd.h>
+#endif
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#if defined(_WIN32) || defined(_WIN64)
+#include <windows.h>
+#else
+#include <sys/syscall.h>
+#endif
 
 #define STDOUT 1
 #define STDERR 2
 #define STDIN 0
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
+// Custom definition for size_t (unsigned long) to avoid conflict with mingw-w64's typedefs.
+typedef unsigned long custom_size_t;
+
+// Custom definition for pid_t (int) to avoid conflict with mingw-w64's typedefs.
+typedef int custom_pid_t;
+
+typedef struct {
+    char *str;
+    custom_size_t len;
+} nstring;
+
+custom_size_t nstrlen(nstring *str) {
+    return str->len;
+}
+
+nstring nstr_new(const char *str) {
+    nstring s;
+    s.len = strlen(str);
+    s.str = (char *)malloc(s.len + 1);
+    strcpy(s.str, str);
+    return s;
+}
+
+nstring nstrncpy(const nstring *s, custom_size_t start, custom_size_t length) {
+    nstring result;
+    if (!s || !s->str || start >= s->len) {
+        result.str = NULL;
+        result.len = 0;
+        return result;
+    }
+
+    custom_size_t max_len = (start + length) > s->len ? s->len - start : length;
+    result.str = (char *)malloc(max_len + 1);
+    memcpy(result.str, s->str + start, max_len);
+    result.str[max_len] = '\0';
+    result.len = max_len;
+
+    return result;
+}
+
+int strcmp(const char *str1, const char *str2) {
+    while (*str1 && (*str1 == *str2)) {
+        str1++;
+        str2++;
+    }
+    return (unsigned char)*str1 - (unsigned char)*str2;
+}
 
 void write_char(int fd, char c) {
     write(fd, &c, 1);
 }
 
 void write_str(int fd, const char *str) {
-    if (str) {
-        while (*str) {
-            write(fd, str++, 1);
-        }
+    while (*str) {
+        write(fd, str++, 1);
     }
 }
 
 void write_num(int fd, int num) {
-    char buffer[num];
+    char buffer[20];
     int i = 0;
-
     if (num == 0) {
         write(fd, "0", 1);
         return;
     }
-
     if (num < 0) {
         write(fd, "-", 1);
         num = -num;
     }
-
     while (num > 0) {
         buffer[i++] = (num % 10) + '0';
         num /= 10;
     }
-
     for (int j = i - 1; j >= 0; j--) {
         write(fd, &buffer[j], 1);
     }
@@ -66,17 +97,14 @@ void write_num(int fd, int num) {
 void write_unsigned(int fd, unsigned int num) {
     char buffer[20];
     int i = 0;
-
     if (num == 0) {
         write(fd, "0", 1);
         return;
     }
-
     while (num > 0) {
         buffer[i++] = (num % 10) + '0';
         num /= 10;
     }
-
     for (int j = i - 1; j >= 0; j--) {
         write(fd, &buffer[j], 1);
     }
@@ -86,17 +114,14 @@ void write_hex(int fd, unsigned int num) {
     const char hex_chars[] = "0123456789abcdef";
     char buffer[10];
     int i = 0;
-
     if (num == 0) {
         write(fd, "0", 1);
         return;
     }
-
     while (num > 0) {
         buffer[i++] = hex_chars[num % 16];
         num /= 16;
     }
-
     for (int j = i - 1; j >= 0; j--) {
         write(fd, &buffer[j], 1);
     }
@@ -104,14 +129,14 @@ void write_hex(int fd, unsigned int num) {
 
 void write_ptr(int fd, void *ptr) {
     write(fd, "0x", 2);
-    write_hex(fd, (unsigned long)ptr);
+    write_hex(fd, (unsigned long long)ptr);  // Correcting the cast to a 64-bit type
 }
 
 void write_float(int fd, double num) {
     char buffer[50];
     int int_part = (int)num;
     double frac_part = num - int_part;
-    
+
     write_num(fd, int_part);
     write(fd, ".", 1);
 
@@ -134,13 +159,7 @@ void nprintf(int fd, const char *format, ...) {
             unsigned int num = va_arg(args, unsigned int);
             write_unsigned(fd, num);
             ptr += 2;
-        }
-        else if (*ptr == '%' && *(ptr +1) == 'z' && *(ptr + 2) == 'u') {
-            unsigned int num = va_arg(args, unsigned int);
-            write_unsigned(fd, num);
-            ptr += 3;
-        }
-        else if (*ptr == '%' && *(ptr + 1) == 's') {
+        } else if (*ptr == '%' && *(ptr + 1) == 's') {
             char *str = va_arg(args, char*);
             write_str(fd, str);
             ptr += 2;
@@ -172,20 +191,6 @@ void nprintf(int fd, const char *format, ...) {
     va_end(args);
 }
 
-    int strcmp(const char *str1, const char *str2) {
-        while (*str1 != '\0' && *str2 != '\0') {
-            if (*str1 != *str2) {
-                return (unsigned char)(*str1) - (unsigned char)(*str2);
-            }
-            str1++;
-            str2++;
-        }
-        return (unsigned char)(*str1) - (unsigned char)(*str2);
-    }
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <stdlib.h>
-
 typedef struct {
     int SUCCESS;
     int FAILURE;
@@ -210,9 +215,6 @@ static const ExitCode ExitStatus = {
     .OUT_OF_RANGE = 255
 };
 
-/**
- * Exit status built-ins
- */
 void nexit(int status) {
     exit(status);
 }
@@ -235,27 +237,21 @@ void __NCLRSCRN__() {
     #endif
 }
 
-/*
-=============================Memory Manager====================================
-*/
-#include <stdlib.h>
-#include <string.h>
-
 typedef struct MemBlock {
     char* data;
-    size_t size;
+    custom_size_t size;
     int free;
     struct MemBlock* next;
     char name[64];
 } MemBlock;
 
 typedef struct MemManager {
-    size_t total;
-    size_t used;
+    custom_size_t total;
+    custom_size_t used;
     MemBlock* blocks;
 } MemManager;
 
-MemManager* mem_init(size_t total) {
+MemManager* mem_init(custom_size_t total) {
     MemManager* mgr = (MemManager*)malloc(sizeof(MemManager));
     if (!mgr) return NULL;
     mgr->total = total;
@@ -264,7 +260,7 @@ MemManager* mem_init(size_t total) {
     return mgr;
 }
 
-MemBlock* mem_alloc(MemManager* mgr, size_t size, const char* name) {
+MemBlock* mem_alloc(MemManager* mgr, custom_size_t size, const char* name) {
     if (!mgr || size == 0 || mgr->used + size > mgr->total || !name) return NULL;
 
     MemBlock* blk = (MemBlock*)malloc(sizeof(MemBlock));
@@ -311,120 +307,10 @@ void mem_cleanup(MemManager* mgr) {
     free(mgr);
 }
 
-int mem_wrtstr(MemBlock* blk, const char* str) {
-    if (!blk || blk->free || !str) return -1;
-
-    size_t str_len = strlen(str);
-    if (str_len + 1 > blk->size) return -2;
-
-    strcpy(blk->data, str);
-    return 0;
-}
-
-int mem_write_str_by_name(MemManager* mgr, const char* name, const char* str) {
-    if (!mgr || !name || !str) return -1;
-
-    MemBlock* blk = mgr->blocks;
-    while (blk) {
-        if (blk->free == 0 && strcmp(name, blk->name) == 0) {
-            return mem_wrtstr(blk, str);
-        }
-        blk = blk->next;
-    }
-
-    size_t str_len = strlen(str) + 1;
-    blk = mem_alloc(mgr, str_len, name);
-    if (!blk) return -3;
-
-    return mem_wrtstr(blk, str);
-}
-
-char* mem_rdstr(MemManager* mgr, const char* name) {
-    if (!mgr || !name) return NULL;
-
-    MemBlock* blk = mgr->blocks;
-    while (blk) {
-        if (blk->free == 0 && strcmp(name, blk->name) == 0) {
-            return blk->data;
-        }
-        blk = blk->next;
-    }
-    return NULL;
-}
-
-int mem_wrtint(MemBlock* blk, int value) {
-    if (!blk || blk->free) return -1;
-
-    if (blk->size < sizeof(int)) return -2;
-
-    memcpy(blk->data, &value, sizeof(int));
-    return 0;
-}
-
-int mem_write_int_by_name(MemManager* mgr, const char* name, int value) {
-    if (!mgr || !name) return -1;
-
-    MemBlock* blk = mgr->blocks;
-    while (blk) {
-        if (blk->free == 0 && strcmp(name, blk->name) == 0) {
-            return mem_wrtint(blk, value);
-        }
-        blk = blk->next;
-    }
-
-    blk = mem_alloc(mgr, sizeof(int), name);
-    if (!blk) return -3;
-
-    return mem_wrtint(blk, value);
-}
-
-int mem_rdint(MemManager* mgr, const char* name) {
-    if (!mgr || !name) return -1;
-
-    MemBlock* blk = mgr->blocks;
-    while (blk) {
-        if (blk->free == 0 && strcmp(name, blk->name) == 0) {
-            int value;
-            memcpy(&value, blk->data, sizeof(int));
-            return value;
-        }
-        blk = blk->next;
-    }
-    return -1;
-}
-int mem_wrnstring(MemBlock* blk, nstring str) {
-    if (!blk || blk->free || !str.str) return -1;
-    size_t str_len = str.len + 1;
-    if (str_len + 1 > blk->size) return -2;
-    memcpy(blk->data, str.str, str_len);
-    return 0;
-}
-nstring mem_rdnstring(MemManager* mgr, const char* name) {
-    if (!mgr || !name) return (nstring){.str = NULL, .len = 0};
-    MemBlock* blk = mgr->blocks;
-    while (blk) {
-        if (blk->free == 0 && strcmp(name, blk->name) == 0) {
-            nstring str;
-            memcpy(&str, blk->data, sizeof(nstring));
-            return str;
-        }
-        blk = blk->next;
-    }
-    return (nstring){.str = NULL, .len = 0};
-}
-
-
-/*
-=============================String Functions====================================
-*/
-size_t nstrlen(nstring *str) {
-    return str->len;
-}
-
 nstring nstrcpy(const nstring *src) {
     if (!src || !src->str) return (nstring){.str = NULL, .len = 0};
     char *new_str = (char *)malloc(src->len + 1);
-    for (size_t i = 0; i < src->len; i++) {
+    for (custom_size_t i = 0; i < src->len; i++) {
         new_str[i] = src->str[i];
     }
     new_str[src->len] = '\0';
@@ -433,8 +319,8 @@ nstring nstrcpy(const nstring *src) {
 
 int nstr_cmp(const nstring *s1, const nstring *s2) {
     if (!s1 || !s2 || !s1->str || !s2->str) return 0;
-    size_t min_len = s1->len < s2->len ? s1->len : s2->len;
-    for (size_t i = 0; i < min_len; i++) {
+    custom_size_t min_len = s1->len < s2->len ? s1->len : s2->len;
+    for (custom_size_t i = 0; i < min_len; i++) {
         if (s1->str[i] != s2->str[i]) return s1->str[i] - s2->str[i];
     }
     return s1->len - s2->len;
@@ -442,95 +328,10 @@ int nstr_cmp(const nstring *s1, const nstring *s2) {
 
 nstring nstrcat(const nstring *s1, const nstring *s2) {
     if (!s1 || !s2 || !s1->str || !s2->str) return (nstring){.str = NULL, .len = 0};
-    size_t new_len = s1->len + s2->len;
+    custom_size_t new_len = s1->len + s2->len;
     char *new_str = (char *)malloc(new_len + 1);
-    for (size_t i = 0; i < s1->len; i++) {
-        new_str[i] = s1->str[i];
-    }
-    for (size_t i = 0; i < s2->len; i++) {
-        new_str[s1->len + i] = s2->str[i];
-    }
+    memcpy(new_str, s1->str, s1->len);
+    memcpy(new_str + s1->len, s2->str, s2->len);
     new_str[new_len] = '\0';
     return (nstring){.str = new_str, .len = new_len};
-}
-
-size_t nstrchr(const nstring *s, char c) {
-    if (!s || !s->str) return (size_t)-1;
-    for (size_t i = 0; i < s->len; i++) {
-        if (s->str[i] == c) return i;
-    }
-    return (size_t)-1;
-}
-
-nstring nstrncpy(const nstring *s, size_t start, size_t length) {
-    if (!s || !s->str || start >= s->len) return (nstring){.str = NULL, .len = 0};
-    size_t max_len = (start + length) > s->len ? (s->len - start) : length;
-    char *new_str = (char *)malloc(max_len + 1);
-    for (size_t i = 0; i < max_len; i++) {
-        new_str[i] = s->str[start + i];
-    }
-    new_str[max_len] = '\0';
-    return (nstring){.str = new_str, .len = max_len};
-}
-
-void stringfree(nstring *s) {
-    if (s && s->str) {
-        free(s->str);
-        s->str = NULL;
-        s->len = 0;
-    }
-}
-
-nstring nstrdup(const char *cstr) {
-    if (!cstr) return (nstring){.str = NULL, .len = 0};
-    size_t len = 0;
-    while (cstr[len]) len++;
-    char *new_str = (char *)malloc(len + 1);
-    for (size_t i = 0; i < len; i++) {
-        new_str[i] = cstr[i];
-    }
-    new_str[len] = '\0';
-    return (nstring){.str = new_str, .len = len};
-}
-
-char nstr_at_s(const nstring *s, size_t index) {
-    if (!s || !s->str || index >= s->len) return '\0';
-    return s->str[index];
-}
-
-void nstr_set_s(nstring *s, size_t index, char c) {
-    if (!s || !s->str || index >= s->len) return;
-    s->str[index] = c;
-}
-void free_nstr_array(nstring *array, size_t count) {
-    for (size_t i = 0; i <= count; i++) {
-        free(array[i].str);
-    }
-    free(array);
-}
-nstring* nstr_split_at_every(nstring input, char delimiter) {
-    const char *start = input.str;
-    const char *delim_pos;
-    size_t count = 0;
-
-    while ((delim_pos = strchr(start, delimiter)) != NULL) {
-        count++;
-        start = delim_pos + 1;
-    }
-
-    nstring *result = (nstring *)malloc((count + 1) * sizeof(nstring));
-
-    start = input.str;
-    size_t index = 0;
-    while ((delim_pos = strchr(start, delimiter)) != NULL) {
-        result[index].str = (char *)malloc(delim_pos - start + 1);
-        strncpy(result[index].str, start, delim_pos - start);
-        result[index].str[delim_pos - start] = '\0';
-        index++;
-        start = delim_pos + 1;
-    }
-
-    result[index].str = strdup(start);
-
-    return result;
 }

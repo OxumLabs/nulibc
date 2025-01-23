@@ -4,8 +4,5 @@
 
 
 int main() {
-    nstring str = nstr_new("Hello, World!");
-    nprintf(STDOUT, "String: %s\n", str.str);
-    ninput(&str);
-    nprintf(STDOUT, "String: %s\n", str.str);
+    nprintf(STDOUT, "Hello, World!\n");
 }

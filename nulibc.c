@@ -1,5 +1,5 @@
 #include <stdarg.h>
-#if defined(UNIX)
+#if defined(UNIX) || defined(__linux__)
 #include <unistd.h>
 #endif
 #include <stdio.h>
@@ -127,6 +127,10 @@ void write_hex(int fd, unsigned int num) {
     }
 }
 
+int file_exists(nstring filename) {
+    return access(filename.str, F_OK);
+}
+
 void write_ptr(int fd, void *ptr) {
     write(fd, "0x", 2);
     write_hex(fd, (unsigned long long)ptr);  // Correcting the cast to a 64-bit type
@@ -220,7 +224,7 @@ void nexit(int status) {
 }
 
 int nsys(const char *command) {
-   system(command);
+   return system(command);
 }
 
 void __NCLRSCRN__() {

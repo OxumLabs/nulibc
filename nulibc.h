@@ -1,3 +1,4 @@
+
 #ifndef NULIBC_H
 #define NULIBC_H
 
@@ -8,6 +9,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+
+typedef int8_t  i8;
+typedef int32_t i32;
+typedef int64_t i64;
+typedef float  f32;
+typedef double f64;
+
 
 #define STDOUT 1
 #define STDERR 2

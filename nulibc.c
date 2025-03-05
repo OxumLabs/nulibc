@@ -1,3 +1,4 @@
+
 #include <stdarg.h>
 #if defined(UNIX) || defined(__linux__)
 #include <unistd.h>
@@ -65,12 +66,23 @@ int strcmp(const char *str1, const char *str2) {
 }
 
 void write_char(int fd, char c) {
+    #if defined(_WIN32) || defined(_WIN64)
+    fwrite(&c, 1, 1, stdout);
+    #endif
+    #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
     write(fd, &c, 1);
+    #endif
 }
 
 void write_str(int fd, const char *str) {
     while (*str) {
-        write(fd, str++, 1);
+        #if defined(_WIN32) || defined(_WIN64)
+        fwrite(str, 1, 1, stdout);
+        #endif
+        #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
+        write(fd, str, 1);
+        #endif
+        str++;
     }
 }
 
@@ -78,11 +90,21 @@ void write_num(int fd, int num) {
     char buffer[20];
     int i = 0;
     if (num == 0) {
+        #if defined(_WIN32) || defined(_WIN64)
+        fwrite("0", 1, 1, stdout);
+        #endif
+        #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
         write(fd, "0", 1);
+        #endif
         return;
     }
     if (num < 0) {
+        #if defined(_WIN32) || defined(_WIN64)
+        fwrite("-", 1, 1, stdout);
+        #endif
+        #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
         write(fd, "-", 1);
+        #endif
         num = -num;
     }
     while (num > 0) {
@@ -90,7 +112,12 @@ void write_num(int fd, int num) {
         num /= 10;
     }
     for (int j = i - 1; j >= 0; j--) {
+        #if defined(_WIN32) || defined(_WIN64)
+        fwrite(&buffer[j], 1, 1, stdout);
+        #endif
+        #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
         write(fd, &buffer[j], 1);
+        #endif
     }
 }
 
@@ -98,7 +125,12 @@ void write_unsigned(int fd, unsigned int num) {
     char buffer[20];
     int i = 0;
     if (num == 0) {
+        #if defined(_WIN32) || defined(_WIN64)
+        fwrite("0", 1, 1, stdout);
+        #endif
+        #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
         write(fd, "0", 1);
+        #endif
         return;
     }
     while (num > 0) {
@@ -106,7 +138,12 @@ void write_unsigned(int fd, unsigned int num) {
         num /= 10;
     }
     for (int j = i - 1; j >= 0; j--) {
+        #if defined(_WIN32) || defined(_WIN64)
+        fwrite(&buffer[j], 1, 1, stdout);
+        #endif
+        #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
         write(fd, &buffer[j], 1);
+        #endif
     }
 }
 
@@ -115,7 +152,12 @@ void write_hex(int fd, unsigned int num) {
     char buffer[10];
     int i = 0;
     if (num == 0) {
+        #if defined(_WIN32) || defined(_WIN64)
+        fwrite("0", 1, 1, stdout);
+        #endif
+        #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
         write(fd, "0", 1);
+        #endif
         return;
     }
     while (num > 0) {
@@ -123,17 +165,25 @@ void write_hex(int fd, unsigned int num) {
         num /= 16;
     }
     for (int j = i - 1; j >= 0; j--) {
+        #if defined(_WIN32) || defined(_WIN64)
+        fwrite(&buffer[j], 1, 1, stdout);
+        #endif
+        #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
         write(fd, &buffer[j], 1);
+        #endif
     }
 }
 
-int file_exists(nstring filename) {
-    return access(filename.str, F_OK);
-}
-
 void write_ptr(int fd, void *ptr) {
+    // Write "0x" before the pointer value.
+    #if defined(_WIN32) || defined(_WIN64)
+    fwrite("0x", 2, 1, stdout);
+    #endif
+    #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
     write(fd, "0x", 2);
-    write_hex(fd, (unsigned long long)ptr);  // Correcting the cast to a 64-bit type
+    #endif
+    // Casting pointer to unsigned long long for 64-bit safety.
+    write_hex(fd, (unsigned int)((unsigned long long)ptr));
 }
 
 void write_float(int fd, double num) {
@@ -142,18 +192,53 @@ void write_float(int fd, double num) {
     double frac_part = num - int_part;
 
     write_num(fd, int_part);
+    // Write decimal point.
+    #if defined(_WIN32) || defined(_WIN64)
+    fwrite(".", 1, 1, stdout);
+    #endif
+    #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
     write(fd, ".", 1);
+    #endif
 
+    // Multiply the fractional part to get 6 decimal places.
     frac_part *= 1000000;
-    int frac_int = (int)frac_part;
-    write_num(fd, frac_int);
+    int frac_int = (int)(frac_part + 0.5); // rounding
+    // Ensure leading zeros if necessary.
+    char frac_buffer[10];
+    snprintf(frac_buffer, sizeof(frac_buffer), "%06d", frac_int);
+    write_str(fd, frac_buffer);
+}
+
+void write_long(int fd, long int num) {
+    char buffer[32];
+    int len = snprintf(buffer, sizeof(buffer), "%ld", num);
+    if(len > 0) {
+        #if defined(_WIN32) || defined(_WIN64)
+        fwrite(buffer, 1, len, stdout);
+        #endif
+        #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
+        write(fd, buffer, len);
+        #endif
+    }
+}
+
+void write_double(int fd, double num) {
+    char buffer[64];
+    int len = snprintf(buffer, sizeof(buffer), "%lf", num);
+    if(len > 0) {
+        #if defined(_WIN32) || defined(_WIN64)
+        fwrite(buffer, 1, len, stdout);
+        #endif
+        #if defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__) || defined(__MACH__)
+        write(fd, buffer, len);
+        #endif
+    }
 }
 
 void nprintf(int fd, const char *format, ...) {
     va_list args;
     va_start(args, format);
     const char *ptr = format;
-
     while (*ptr) {
         if (*ptr == '%' && *(ptr + 1) == 'd') {
             int num = va_arg(args, int);
@@ -176,25 +261,31 @@ void nprintf(int fd, const char *format, ...) {
             write_hex(fd, hex);
             ptr += 2;
         } else if (*ptr == '%' && *(ptr + 1) == 'p') {
-            void *ptr_value = va_arg(args, void*);
-            write_ptr(fd, ptr_value);
+            void *p = va_arg(args, void*);
+            write_ptr(fd, p);
             ptr += 2;
         } else if (*ptr == '%' && *(ptr + 1) == 'f') {
             double num = va_arg(args, double);
             write_float(fd, num);
             ptr += 2;
-        } else if (*ptr == '%' && *(ptr + 1) == '%') {
+        } else if (*ptr == '%' && *(ptr + 1) == '%' ) {
             write_char(fd, '%');
             ptr += 2;
+        } else if (*ptr == '%' && *(ptr + 1) == 'l' && *(ptr + 2) == 'd') {
+            long int num = va_arg(args, long int);
+            write_long(fd, num);
+            ptr += 3;
+        } else if (*ptr == '%' && *(ptr + 1) == 'l' && *(ptr + 2) == 'f') {
+            double num = va_arg(args, double);
+            write_double(fd, num);
+            ptr += 3;
         } else {
             write_char(fd, *ptr);
             ptr++;
         }
     }
-
     va_end(args);
 }
-
 typedef struct {
     int SUCCESS;
     int FAILURE;
